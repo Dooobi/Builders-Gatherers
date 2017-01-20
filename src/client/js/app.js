@@ -21,59 +21,56 @@ if ( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
     global.mobile = true;
 }
 
-function startGame(type) {
-    global.playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0,25);
-    global.playerType = type;
+function requestStart(name) {
+	global.playerType = 'player';
+	if (!socket) {
+        socket = io({query:"name=" + name});
+        setupSocket(socket);
+    }
+    socket.emit('requestStart');
+}
+
+function startGame(playerData) {
+	player = playerData;
+    global.player = playerData;
 
     global.screenWidth = window.innerWidth;
     global.screenHeight = window.innerHeight;
 
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
-    if (!socket) {
-        socket = io({query:"type=" + type});
-        setupSocket(socket);
-    }
+
+	global.gameRunning = true;
     if (!global.animLoopHandle) {
 		startTime = new Date().getTime();
         animloop();
 	}
-    socket.emit('respawn');
+//    socket.emit('respawn');
     window.chat.socket = socket;
     window.chat.registerFunctions();
     window.canvas.socket = socket;
     global.socket = socket;
-	
-	animator.createAnimation("1");
-	animator.addLine("1", 25, 50, -25, 50);
-//	animator.addCurve("1", 1, 2, 2, 180, 270);
-	animator.addLine("1", -25, 50, -25, -50);
-	animator.addLine("1", -25, -50, 25, 50);
 }
 
 // Checks if the nick chosen contains valid alphanumeric characters (and underscores).
-function validNick() {
+function validNick(name) {
     var regex = /^\w*$/;
-    debug('Regex Test', regex.exec(playerNameInput.value));
-    return regex.exec(playerNameInput.value) !== null;
+    debug('Regex Test', regex.exec(name));
+    return regex.exec(name) !== null;
 }
 
 window.onload = function() {
 
     var btn = document.getElementById('startButton'),
-        btnS = document.getElementById('spectateButton'),
         nickErrorText = document.querySelector('#startMenu .input-error');
 
-    btnS.onclick = function () {
-        startGame('spectate');
-    };
-
     btn.onclick = function () {
-
+		var name = playerNameInput.value;
+		
         // Checks if the nick is valid.
-        if (validNick()) {
+        if (validNick(name)) {
             nickErrorText.style.opacity = 0;
-            startGame('player');
+            requestStart(name);
         } else {
             nickErrorText.style.opacity = 1;
         }
@@ -93,16 +90,23 @@ window.onload = function() {
 
     playerNameInput.addEventListener('keypress', function (e) {
         var key = e.which || e.keyCode;
-
+		var name = playerNameInput.value;
+		
         if (key === global.KEY_ENTER) {
-            if (validNick()) {
+            if (validNick(name)) {
                 nickErrorText.style.opacity = 0;
-                startGame('player');
+                requestStart(name);
             } else {
                 nickErrorText.style.opacity = 1;
             }
         }
     });
+	
+	animator.createAnimation("1");
+	animator.addLine("1", 25, 50, -25, 50);
+//	animator.addCurve("1", 1, 2, 2, 180, 270);
+	animator.addLine("1", -25, 50, -25, -50);
+	animator.addLine("1", -25, -50, 25, 50);
 };
 
 // TODO: Break out into GameControls.
@@ -132,7 +136,7 @@ global.player = player;
 var foods = [];
 var viruses = [];
 var fireFood = [];
-var users = [];
+var aPlayers = [];
 var leaderboard = [];
 var target = {x: player.x, y: player.y};
 global.target = target;
@@ -169,6 +173,7 @@ $( "#split" ).click(function() {
 function setupSocket(socket) {
     // Handle ping.
     socket.on('pongcheck', function () {
+		console.log("pongcheck");
         var latency = Date.now() - global.startPingTime;
         debug('Latency: ' + latency + 'ms');
         window.chat.addSystemLine('Ping: ' + latency + 'ms');
@@ -176,17 +181,20 @@ function setupSocket(socket) {
 
     // Handle error.
     socket.on('connect_failed', function () {
+		console.log("connect_failed");
         socket.close();
         global.disconnected = true;
     });
 
     socket.on('disconnect', function () {
+		console.log("disconnect");
         socket.close();
         global.disconnected = true;
     });
 
     // Handle connection.
     socket.on('welcome', function (playerSettings) {
+		console.log("welcome");
         player = playerSettings;
         player.name = global.playerName;
         player.screenWidth = global.screenWidth;
@@ -195,8 +203,8 @@ function setupSocket(socket) {
         global.player = player;
         window.chat.player = player;
         socket.emit('gotit', player);
-        global.gameStart = true;
-        debug('Game started at: ' + global.gameStart);
+        global.gameRunning = true;
+        debug('Game started at: ' + global.gameRunning);
         window.chat.addSystemLine('Connected to the game!');
         window.chat.addSystemLine('Type <b>-help</b> for a list of commands.');
         if (global.mobile) {
@@ -205,25 +213,32 @@ function setupSocket(socket) {
 		c.focus();
     });
 
-    socket.on('gameSetup', function(data) {
-        global.gameWidth = data.gameWidth;
-        global.gameHeight = data.gameHeight;
+    socket.on('startGame', function(gameData, playerData) {
+		console.log("socket.on('startGame')");
+		
+        global.gameWidth = gameData.gameWidth;
+        global.gameHeight = gameData.gameHeight;
         resize();
+		startGame(playerData);
     });
 
     socket.on('playerDied', function (data) {
+		console.log("playerDied");
         window.chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> was eaten.');
     });
 
     socket.on('playerDisconnect', function (data) {
+		console.log("playerDisconnect");
         window.chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> disconnected.');
     });
 
     socket.on('playerJoin', function (data) {
+		console.log("playerJoin");
         window.chat.addSystemLine('{GAME} - <b>' + (data.name.length < 1 ? 'An unnamed cell' : data.name) + '</b> joined.');
     });
 
     socket.on('leaderboard', function (data) {
+		console.log("leaderboard");
         leaderboard = data.leaderboard;
         var status = '<span class="title">Leaderboard</span>';
         for (var i = 0; i < leaderboard.length; i++) {
@@ -245,44 +260,36 @@ function setupSocket(socket) {
     });
 
     socket.on('serverMSG', function (data) {
+		console.log("serverMSG");
         window.chat.addSystemLine(data);
     });
 
     // Chat.
     socket.on('serverSendPlayerChat', function (data) {
+		console.log("serverSendPlayerChat");
         window.chat.addChatLine(data.sender, data.message, false);
     });
 
     // Handle movement.
-    socket.on('serverTellPlayerMove', function (userData, foodsList, massList, virusList) {
-        var playerData;
-        for(var i =0; i< userData.length; i++) {
-            if(typeof(userData[i].id) == "undefined") {
-                playerData = userData[i];
-                i = userData.length;
-            }
-        }
+    socket.on('serverTellPlayerMove', function (myPlayer, aPlayerData) {
+		console.log("serverTellPlayerMove");
+		
         if(global.playerType == 'player') {
-            var xoffset = player.x - playerData.x;
-            var yoffset = player.y - playerData.y;
+            var xoffset = player.character.x - myPlayer.character.x;
+            var yoffset = player.character.y - myPlayer.character.y;
 
-            player.x = playerData.x;
-            player.y = playerData.y;
-            player.hue = playerData.hue;
-            player.massTotal = playerData.massTotal;
-            player.cells = playerData.cells;
-            player.xoffset = isNaN(xoffset) ? 0 : xoffset;
-            player.yoffset = isNaN(yoffset) ? 0 : yoffset;
+            player.character.x = myPlayer.character.x;
+            player.character.y = myPlayer.character.y;
+            player.character.xoffset = isNaN(xoffset) ? 0 : xoffset;
+            player.character.yoffset = isNaN(yoffset) ? 0 : yoffset;
         }
-        users = userData;
-        foods = foodsList;
-        viruses = virusList;
-        fireFood = massList;
+        aPlayers = aPlayerData;
     });
 
     // Death.
     socket.on('RIP', function () {
-        global.gameStart = false;
+		console.log("RIP");
+        global.gameRunning = false;
         global.died = true;
         window.setTimeout(function() {
             document.getElementById('gameAreaWrapper').style.opacity = 0;
@@ -296,16 +303,13 @@ function setupSocket(socket) {
     });
 
     socket.on('kick', function (data) {
-        global.gameStart = false;
+		console.log("kick");
+        global.gameRunning = false;
         reason = data;
         global.kicked = true;
         socket.close();
     });
 
-    socket.on('virusSplit', function (virusCell) {
-        socket.emit('2', virusCell);
-        reenviar = false;
-    });
 }
 
 function drawCircle(centerX, centerY, radius, sides) {
@@ -354,11 +358,11 @@ function drawFireFood(mass) {
                mass.radius-5, 18 + (~~(mass.masa/5)));
 }
 
-function drawPlayer(oPlayerIds) {
-	var oCharacter = users[oPlayerIds.nCell];
+function drawPlayer(oPlayer) {
+	var oCharacter = oPlayer.character;
 	var start = {
-        x: player.x - (global.screenWidth / 2),
-        y: player.y - (global.screenHeight / 2)
+        x: oPlayer.x - (global.screenWidth / 2),
+        y: oPlayer.y - (global.screenHeight / 2)
     };
 	var x = oCharacter.x - start.x,
 		y = oCharacter.y - start.y,
@@ -424,8 +428,8 @@ function drawPlayers(order) {
 
     for(var z=0; z<order.length; z++)
     {
-        var userCurrent = users[order[z].nCell];
-        var cellCurrent = users[order[z].nCell].cells[order[z].nDiv];
+        var userCurrent = aPlayers[order[z].nCell];
+        var cellCurrent = aPlayers[order[z].nCell].cells[order[z].nDiv];
 
         var x=0;
         var y=0;
@@ -648,33 +652,18 @@ function gameLoop() {
         graph.fillText('You died!', global.screenWidth / 2, global.screenHeight / 2);
     }
     else if (!global.disconnected) {
-        if (global.gameStart) {
+        if (global.gameRunning) {
             graph.fillStyle = global.backgroundColor;
             graph.fillRect(0, 0, global.screenWidth, global.screenHeight);
 
             drawgrid();
-            foods.forEach(drawFood);
-            fireFood.forEach(drawFireFood);
-            viruses.forEach(drawVirus);
+            aPlayers.forEach(drawPlayer);
 
             if (global.borderDraw) {
                 drawborder();
             }
-            var orderMass = [];
-            for(var i=0; i<users.length; i++) {
-                for(var j=0; j<users[i].cells.length; j++) {
-                    orderMass.push({
-                        nCell: i,
-                        nDiv: j,
-                        mass: users[i].cells[j].mass
-                    });
-                }
-            }
-            orderMass.sort(function(obj1, obj2) {
-                return obj1.mass - obj2.mass;
-			});
 
-			drawPlayer(orderMass[0]);
+			//drawPlayer(orderMass[0]);
 			drawAnimationTest();
 			
 //            drawPlayers(orderMass);

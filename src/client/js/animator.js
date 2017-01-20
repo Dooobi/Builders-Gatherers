@@ -54,9 +54,11 @@ exports.createAnimation = function(uniqueName) {
 		triggers: []
 	};
     animations[uniqueName] = animation;
+	var anims = animations;
 };
 
 exports.addLine = function(uniqueName, x1, y1, x2, y2) {
+	var anims = animations;
 	var line = {
 		type: "line",
 		start: {
@@ -74,6 +76,7 @@ exports.addLine = function(uniqueName, x1, y1, x2, y2) {
 };
 
 exports.addCurve = function(uniqueName, x, y, radius, startAngle, endAngle) {
+	var anims = animations;
 	var curve = {
 		type: "curve",
 		x: x,
@@ -126,6 +129,7 @@ exports.getPosByPercent = function(uniqueName, somePercent) {
 	var i = 0;
 	var totalLength = 0;
 	var someLength = 0;
+	var anims = animations;
 	var parts = animations[uniqueName].parts;
 	
 	for (i = 0; i < parts.length; i++) {
