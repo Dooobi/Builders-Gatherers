@@ -3,6 +3,7 @@ var ChatClient = require('./chat-client');
 var Canvas = require('./canvas');
 var global = require('./global');
 var animator = require('./animator');
+var kd = require('./keydrown');
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
@@ -33,9 +34,6 @@ function requestStart(name) {
 function startGame(playerData) {
 	player = playerData;
     global.player = playerData;
-
-    global.screenWidth = window.innerWidth;
-    global.screenHeight = window.innerHeight;
 
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
@@ -102,11 +100,11 @@ window.onload = function() {
         }
     });
 	
-	animator.createAnimation("1");
-	animator.addLine("1", 25, 50, -25, 50);
-//	animator.addCurve("1", 1, 2, 2, 180, 270);
-	animator.addLine("1", -25, 50, -25, -50);
-	animator.addLine("1", -25, -50, 25, 50);
+	animator.createAnimation("character/l_hand");
+	animator.addLine("character/l_hand", 25, 50, -25, 50);
+//	animator.addCurve("character/l_hand", 1, 2, 2, 180, 270);
+	animator.addLine("character/l_hand", -25, 50, -25, -50);
+	animator.addLine("character/l_hand", -25, -50, 25, 50);
 };
 
 // TODO: Break out into GameControls.
@@ -167,6 +165,26 @@ $( "#feed" ).click(function() {
 $( "#split" ).click(function() {
     socket.emit('2');
     window.canvas.reenviar = false;
+});
+
+kd.A.down(function() {
+	console.log('LEFT');
+	global.targetVector.x = -1;
+});
+
+kd.D.down(function() {
+	console.log('RIGHT');
+	global.targetVector.x = 1;
+});
+
+kd.W.down(function() {
+	console.log('UP');
+	global.targetVector.y = -1;
+});
+
+kd.S.down(function() {
+	console.log('DOWN');
+	global.targetVector.y = 1;
 });
 
 // socket stuff.
@@ -271,8 +289,8 @@ function setupSocket(socket) {
     });
 
     // Handle movement.
-    socket.on('serverTellPlayerMove', function (myPlayer, aPlayerData) {
-		console.log("serverTellPlayerMove");
+    socket.on('update', function (myPlayer, aPlayerData) {
+		console.log("update");
 		
         if(global.playerType == 'player') {
             var xoffset = player.character.x - myPlayer.character.x;
@@ -589,6 +607,16 @@ function drawborder() {
     }
 }
 
+function handleInput() {
+	global.targetVector = {
+		x: 0,
+		y: 0
+	};
+	
+	kd.tick();
+	socket.emit('updateMove', global.targetVector);
+}
+
 window.requestAnimFrame = (function() {
     return  window.requestAnimationFrame       ||
             window.webkitRequestAnimationFrame ||
@@ -617,7 +645,7 @@ function drawAnimationTest() {
 	graph.beginPath();
 	
 	for (var i = 0; i <= 1; i += diff) {
-		coords = animator.getPosByPercent("1", i);
+		coords = animator.getPosByPercent("character/l_hand", i);
 		coords.x *= scale;
 		coords.y *= scale;
 		coords.x += xOffset;
@@ -667,6 +695,7 @@ function gameLoop() {
 			drawAnimationTest();
 			
 //            drawPlayers(orderMass);
+			handleInput();
             socket.emit('0', window.canvas.target); // playerSendTarget "Heartbeat".
 
         } else {

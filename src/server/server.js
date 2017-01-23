@@ -29,6 +29,14 @@ app.use(express.static(__dirname + '/../client'));
 app.listen(3000); 
 
 function moveCharacter(character) {
+	var moveVector = util.normalizeVector(character.targetVector.x, character.targetVector.y);
+	
+	character.prevX = character.x;
+	character.prevY = character.y;
+	
+	character.x += moveVector.x * character.moveSpeed;
+	character.y += moveVector.y * character.moveSpeed;
+	
 	character.x += (Math.random() - 0.5) * 2;
 	character.y += (Math.random() - 0.5) * 2;
 }
@@ -53,6 +61,13 @@ io.on('connection', function (socket) {
 		character: {
 			x: position.x,
 			y: position.y,
+			prevX: position.x,
+			prevY: position.y,
+			targetVector: {
+				x: 0,
+				y: 0
+			},
+			moveSpeed: 10,
 			angle: 0,
 			health: 100,
 			animation: {
@@ -123,6 +138,50 @@ io.on('connection', function (socket) {
     socket.on('0', function(target) {
         oCurrentPlayer.lastHeartbeat = new Date().getTime();
     });
+	
+	socket.on('updateMove', function(targetVector) {
+		oCurrentPlayer.character.targetVector = targetVector;
+	});
+	
+	socket.on('moveDown', function(keyData) {
+		var targetVector = oCurrentPlayer.character.targetVector;
+		
+		switch(keyData.keyCode) {
+		case 37:	// LEFT
+			targetVector.x -= 1;
+			break;
+		case 39:	// RIGHT
+			targetVector.x += 1;
+			break;
+		case 38:	// UP
+			targetVector.y -= 1;
+			break;
+		case 40:	// DOWN
+			targetVector.y += 1;
+			break;
+		}
+		console.log("moveDown: (" + targetVector.x + " | " + targetVector.y + ")");
+	});
+	
+	socket.on('moveUp', function(keyData) {
+		var targetVector = oCurrentPlayer.character.targetVector;
+		
+		switch(keyData.keyCode) {
+		case 37:	// LEFT
+			targetVector.x += 1;
+			break;
+		case 39:	// RIGHT
+			targetVector.x -= 1;
+			break;
+		case 38:	// UP
+			targetVector.y += 1;
+			break;
+		case 40:	// DOWN
+			targetVector.y -= 1;
+			break;
+		}
+		console.log("moveUp: (" + targetVector.x + " | " + targetVector.y + ")");
+	});
 
 });
 
@@ -261,7 +320,7 @@ function sendUpdates() {
             .filter(function(f) { return f; });
 		*/
 		
-        aSockets[u.id].emit('serverTellPlayerMove', aPlayers[0], visiblePlayers);
+        aSockets[u.id].emit('update', aPlayers[0], visiblePlayers);
     });
 }
 

@@ -32,4 +32,8 @@ module.exports = {
     toggleMassState: 0,
     backgroundColor: '#f2fbff',
     lineColor: '#000000',
+	targetVector: {
+		x: 0,
+		y: 0
+	}
 };

@@ -2,7 +2,9 @@
 
 'use strict';
 
-var animations = [];
+var root = {
+	animations: {}
+};
 
 var line = {
 	x1: 1,
@@ -36,6 +38,29 @@ var curveLengthToCoords = function(curve, someLength) {
 	return coords;
 };
 
+var lazyLoadAnimation = function(sName, oParent) {
+	if (!oParent.animations[sName]) {
+		var animation = {
+			animations: {},
+			parts: [],
+			triggers: []
+		};
+		oParent.animations[sName] = animation;
+	}
+	return oParent.animations[sName];
+};
+
+var getAnimation = function(sPath) {
+	var aParts = sPath.split("/");
+	var i;
+	var current = root;
+	
+	for (i = 0; i < aParts.length; i++) {
+		current = lazyLoadAnimation(aParts[i], current);
+	}
+	return current;
+};
+
 var vectorToDegrees = function(x1, y1, x2, y2) {
 	return Math.atan2(y2-y1, x2-x1);
 };
@@ -48,17 +73,16 @@ var radToDeg = function(rad) {
 	return rad * (180/Math.PI);
 };
 
-exports.createAnimation = function(uniqueName) {
-	var animation = {
-		parts: [],
-		triggers: []
-	};
-    animations[uniqueName] = animation;
-	var anims = animations;
+/**
+ * It's possible to create animation in a folder-like structure e.g.:
+ * 	createAnimation("character/idle/left_hand")
+ * 
+ */
+exports.createAnimation = function(sPath) {
+	getAnimation(sPath);
 };
 
-exports.addLine = function(uniqueName, x1, y1, x2, y2) {
-	var anims = animations;
+exports.addLine = function(sPath, x1, y1, x2, y2) {
 	var line = {
 		type: "line",
 		start: {
@@ -72,11 +96,10 @@ exports.addLine = function(uniqueName, x1, y1, x2, y2) {
 		rad: vectorToDegrees(x1, y1, x2, y2),
 		length: Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2))
 	};
-	animations[uniqueName].parts.push(line);
+	getAnimation(sPath).parts.push(line);
 };
 
-exports.addCurve = function(uniqueName, x, y, radius, startAngle, endAngle) {
-	var anims = animations;
+exports.addCurve = function(sPath, x, y, radius, startAngle, endAngle) {
 	var curve = {
 		type: "curve",
 		x: x,
@@ -86,14 +109,15 @@ exports.addCurve = function(uniqueName, x, y, radius, startAngle, endAngle) {
 		endRad: degToRad(endAngle),
 		length: degToRad(endAngle - startAngle) * radius
 	};
-	animations[uniqueName].parts.push(curve);
+	getAnimation(sPath).parts.push(curve);
 };
 
-exports.getPosByLength = function(uniqueName, someLength) {
+exports.getPosByLength = function(sPath, someLength) {
+	var keys = Object.keys(root.animations);
 	var i = 0;
 	var prevLength = 0;
 	var currentLength = 0;
-	var parts = animations[uniqueName].parts;
+	var parts = getAnimation(sPath).parts;
 	var part = null;
 	var coords = null;
 	var pPart = null;
@@ -125,17 +149,16 @@ exports.getPosByLength = function(uniqueName, someLength) {
 	return coords;
 };
 
-exports.getPosByPercent = function(uniqueName, somePercent) {
+exports.getPosByPercent = function(sPath, somePercent) {
 	var i = 0;
 	var totalLength = 0;
 	var someLength = 0;
-	var anims = animations;
-	var parts = animations[uniqueName].parts;
+	var parts = getAnimation(sPath).parts;
 	
 	for (i = 0; i < parts.length; i++) {
 		totalLength += parts[i].length;
 	}
 	someLength = totalLength * somePercent;
 	
-	return exports.getPosByLength(uniqueName, someLength);
+	return exports.getPosByLength(sPath, someLength);
 };

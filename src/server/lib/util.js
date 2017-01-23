@@ -39,6 +39,19 @@ exports.randomPosition = function (radius) {
     };
 };
 
+exports.normalizeVector = function(x, y) {
+	var length = Math.sqrt(x * x + y * y);
+	
+	if (length === 0) {
+		return {x: 0, y: 0};
+	}
+	// normalize vector
+	x /= length;
+	y /= length;
+	
+	return {x: x, y: y};
+};
+
 exports.uniformPosition = function(points, radius) {
     var bestCandidate, maxDistance = 0;
     var numberOfCandidates = 10;
