@@ -543,21 +543,21 @@ function valueInRange(min, max, value) {
 }
 
 function drawgrid() {
-     graph.lineWidth = 1;
-     graph.strokeStyle = global.lineColor;
-     graph.globalAlpha = 0.15;
-     graph.beginPath();
+	graph.lineWidth = 1;
+	graph.strokeStyle = global.lineColor;
+	graph.globalAlpha = 0.15;
+	graph.beginPath();
 
-    for (var x = global.xoffset - player.x; x < global.screenWidth; x += global.screenHeight / 18) {
+    for (var x = global.xoffset - player.camX; x < global.screenWidth; x += global.screenHeight / 18) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
     }
 
-    for (var y = global.yoffset - player.y ; y < global.screenHeight; y += global.screenHeight / 18) {
+    for (var y = global.yoffset - player.camY ; y < global.screenHeight; y += global.screenHeight / 18) {
         graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
     }
-
+	
     graph.stroke();
     graph.globalAlpha = 1;
 }
@@ -640,9 +640,9 @@ function drawAnimationTest() {
 	var yOffset = 200;
 	
 	graph.lineWidth = 1;
-	graph.strokeStyle = '#00FF00';
-	graph.globalAlpha = 1;
-	graph.beginPath();
+    graph.strokeStyle = '#E00000';
+    graph.globalAlpha = 0.15;
+    graph.beginPath();
 	
 	for (var i = 0; i <= 1; i += diff) {
 		coords = animator.getPosByPercent("character/l_hand", i);
@@ -650,8 +650,7 @@ function drawAnimationTest() {
 		coords.y *= scale;
 		coords.x += xOffset;
 		coords.y += yOffset;
-		graph.fillRect(coords.x, coords.y, 2, 2);
-		//graph.lineTo(coords.x, coords.y);
+		graph.lineTo(coords.x, coords.y);
 	}
 	
 	graph.stroke();
