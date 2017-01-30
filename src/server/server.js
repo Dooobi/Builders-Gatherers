@@ -25,6 +25,7 @@ var aSockets = [];
 var V = SAT.Vector;
 var C = SAT.Circle;
 
+
 app.use(express.static(__dirname + '/../client'));
 app.listen(3000); 
 
@@ -37,8 +38,8 @@ function moveCharacter(character) {
 	character.x += moveVector.x * character.moveSpeed;
 	character.y += moveVector.y * character.moveSpeed;
 	
-	character.x += (Math.random() - 0.5) * 2;
-	character.y += (Math.random() - 0.5) * 2;
+//	character.x += (Math.random() - 0.5) * 2;
+//	character.y += (Math.random() - 0.5) * 2;
 }
 
 io.on('connection', function (socket) {

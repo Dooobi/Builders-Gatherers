@@ -293,9 +293,13 @@ function setupSocket(socket) {
 		console.log("update");
 		
         if(global.playerType == 'player') {
+			
             var xoffset = player.character.x - myPlayer.character.x;
             var yoffset = player.character.y - myPlayer.character.y;
 
+			player = myPlayer;
+			player.camX = myPlayer.character.x;
+			player.camY = myPlayer.character.y;
             player.character.x = myPlayer.character.x;
             player.character.y = myPlayer.character.y;
             player.character.xoffset = isNaN(xoffset) ? 0 : xoffset;
@@ -379,8 +383,8 @@ function drawFireFood(mass) {
 function drawPlayer(oPlayer) {
 	var oCharacter = oPlayer.character;
 	var start = {
-        x: oPlayer.x - (global.screenWidth / 2),
-        y: oPlayer.y - (global.screenHeight / 2)
+        x: player.camX - (global.screenWidth / 2),
+        y: player.camY - (global.screenHeight / 2)
     };
 	var x = oCharacter.x - start.x,
 		y = oCharacter.y - start.y,
@@ -543,11 +547,25 @@ function valueInRange(min, max, value) {
 }
 
 function drawgrid() {
+	var cellSizeX = global.screenWidth / global.countLinesGrid;
+	var cellSizeY = global.screenHeight / global.countLinesGrid;
+	var restX = player.camX % cellSizeX;
+	var restY = player.camY % cellSizeY;
 	graph.lineWidth = 1;
 	graph.strokeStyle = global.lineColor;
 	graph.globalAlpha = 0.15;
 	graph.beginPath();
-
+	
+	for (var x = global.xoffset + global.screenWidth - restX; x > 0; x -= cellSizeY) {
+		graph.moveTo(x, 0);
+        graph.lineTo(x, global.screenHeight);
+	}
+	
+	for (var y = global.yoffset + global.screenHeight - restY; y > 0; y -= cellSizeY) {
+		graph.moveTo(0, y);
+        graph.lineTo(global.screenWidth, y);
+	}
+/*	
     for (var x = global.xoffset - player.camX; x < global.screenWidth; x += global.screenHeight / 18) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
@@ -557,7 +575,7 @@ function drawgrid() {
         graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
     }
-	
+*/
     graph.stroke();
     graph.globalAlpha = 1;
 }
