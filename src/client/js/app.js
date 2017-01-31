@@ -22,6 +22,32 @@ if ( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
     global.mobile = true;
 }
 
+function setupAnimations() {
+    // Idle
+    animator.createAnimation("idle/body");
+    animator.addLine("idle/body", 0, 5, 0, -5, 300);
+    animator.addLine("idle/body", 0, -5, 0, 5, 300);
+    animator.createAnimation("idle/body/l_hand");
+    animator.addCurve("idle/body/l_hand", 0, 0, 35, 170, 180, 300);
+    animator.addCurve("idle/body/l_hand", 0, 0, 35, 180, 170, 300);
+    animator.createAnimation("idle/body/r_hand");
+    animator.addCurve("idle/body/r_hand", 0, 0, 35, 10, 0, 300);
+    animator.addCurve("idle/body/r_hand", 0, 0, 35, 0, 10, 300);
+    // Moving
+    animator.createAnimation("moving/body");
+    animator.addLine("moving/body", 0, 5, 0, -5, 250);
+    animator.addLine("moving/body", 0, -5, 0, 5, 250);
+    animator.createAnimation("moving/body/l_hand");
+    animator.addCurve("moving/body/l_hand", 0, 0, 35, 160, 190, 250);
+    animator.addCurve("moving/body/l_hand", 0, 0, 35, 190, 160, 250);
+    animator.createAnimation("moving/body/r_hand");
+    animator.addCurve("moving/body/r_hand", 0, 0, 35, 20, -10, 250);
+    animator.addCurve("moving/body/r_hand", 0, 0, 35, -10, 20, 250);
+
+    var tree = animator.getAnimationTreeByDuration("moving", 200);
+    console.log(JSON.stringify(tree));
+}
+
 function requestStart(name) {
 	global.playerType = 'player';
 	if (!socket) {
@@ -64,7 +90,7 @@ window.onload = function() {
 
     btn.onclick = function () {
 		var name = playerNameInput.value;
-		
+
         // Checks if the nick is valid.
         if (validNick(name)) {
             nickErrorText.style.opacity = 0;
@@ -89,7 +115,7 @@ window.onload = function() {
     playerNameInput.addEventListener('keypress', function (e) {
         var key = e.which || e.keyCode;
 		var name = playerNameInput.value;
-		
+
         if (key === global.KEY_ENTER) {
             if (validNick(name)) {
                 nickErrorText.style.opacity = 0;
@@ -99,12 +125,8 @@ window.onload = function() {
             }
         }
     });
-	
-	animator.createAnimation("character/l_hand");
-	animator.addLine("character/l_hand", 25, 50, -25, 50);
-//	animator.addCurve("character/l_hand", 1, 2, 2, 180, 270);
-	animator.addLine("character/l_hand", -25, 50, -25, -50);
-	animator.addLine("character/l_hand", -25, -50, 25, 50);
+
+    setupAnimations();
 };
 
 // TODO: Break out into GameControls.
@@ -233,7 +255,7 @@ function setupSocket(socket) {
 
     socket.on('startGame', function(gameData, playerData) {
 		console.log("socket.on('startGame')");
-		
+
         global.gameWidth = gameData.gameWidth;
         global.gameHeight = gameData.gameHeight;
         resize();
@@ -291,9 +313,9 @@ function setupSocket(socket) {
     // Handle movement.
     socket.on('update', function (myPlayer, aPlayerData) {
 		console.log("update");
-		
+
         if(global.playerType == 'player') {
-			
+
             var xoffset = player.character.x - myPlayer.character.x;
             var yoffset = player.character.y - myPlayer.character.y;
 
@@ -388,8 +410,10 @@ function drawPlayer(oPlayer) {
     };
 	var x = oCharacter.x - start.x,
 		y = oCharacter.y - start.y,
-		animHeight = 10,
-		animCycleTime = 1000,
+        animPos = {},
+        animName = oCharacter.animation.name,
+        animDuration = oCharacter.animation.duration,
+        animTree,
 		radius = 23,
 		sides = 20,
 		eyeDist = 3,
@@ -397,13 +421,15 @@ function drawPlayer(oPlayer) {
 		handHeight = 5,
 		handRadius = 5;
 
-	y += animHeight * Math.sin(2*Math.PI * (time/animCycleTime));
-		
+	var animPercentage = (time % 1000) / 1000;
+    animTree = animator.getAnimationTreeByDuration(animName, animDuration);
+
 	// Body
 	graph.strokeStyle = 'hsl(80%, 100%, 45%)';
-	graph.fillStyle = 'hsl(80%, 100%, 50%)';
+	graph.fillStyle = "#FF0000";
 	graph.lineWidth = playerConfig.border;
-	drawCircle(x, y, radius, sides);
+    animPos = animTree.animations.body.coords;
+	drawCircle(x + animPos.x, y + animPos.y, radius, sides);
 
 	// Eyes
 	graph.strokeStyle = 'hsl(30%, 50%, 100%)';
@@ -411,31 +437,33 @@ function drawPlayer(oPlayer) {
 	graph.lineWidth = 4;
 	// Left Eye
 	graph.beginPath();
-	graph.moveTo(x - eyeDist, y);
-	graph.lineTo(x - 10 - eyeDist, y - 1);
-	graph.lineTo(x - 10 - eyeDist, y - 8);
-	graph.lineTo(x - 1 - eyeDist, y - 1);
+	graph.moveTo(x - eyeDist + animPos.x, y + animPos.y);
+	graph.lineTo(x - 10 - eyeDist + animPos.x, y - 1 + animPos.y);
+	graph.lineTo(x - 10 - eyeDist + animPos.x, y - 8 + animPos.y);
+	graph.lineTo(x - 1 - eyeDist + animPos.x, y - 1 + animPos.y);
 	graph.closePath();
 	graph.stroke();
 	graph.fill();
 	// Right Eye
 	graph.beginPath();
-	graph.moveTo(x + eyeDist, y);
-	graph.lineTo(x + 10 + eyeDist, y - 1);
-	graph.lineTo(x + 10 + eyeDist, y - 8);
-	graph.lineTo(x + 1 + eyeDist, y - 1);
+	graph.moveTo(x + eyeDist + animPos.x, y + animPos.y);
+	graph.lineTo(x + 10 + eyeDist + animPos.x, y - 1 + animPos.y);
+	graph.lineTo(x + 10 + eyeDist + animPos.x, y - 8 + animPos.y);
+	graph.lineTo(x + 1 + eyeDist + animPos.x, y - 1 + animPos.y);
 	graph.closePath();
 	graph.stroke();
 	graph.fill();
-	
+
 	// Hands
 	graph.strokeStyle = 'hsl(30%, 50%, 100%)';
 	graph.fillStyle = 'hsl(80%, 100%, 50%)';
 	graph.lineWidth = 4;
 	// Left Hand
-	drawCircle(x - radius - handDist, y - handHeight, handRadius, sides);
+    animPos = animTree.animations.body.animations.l_hand.coords;
+	drawCircle(x + animPos.x, y + animPos.y, handRadius, sides);
 	// Right Hand
-	drawCircle(x + radius + handDist, y - handHeight, handRadius, sides);
+    animPos = animTree.animations.body.animations.r_hand.coords;
+    drawCircle(x + animPos.x, y + animPos.y, handRadius, sides);
 }
 
 function drawPlayers(order) {
@@ -555,17 +583,17 @@ function drawgrid() {
 	graph.strokeStyle = global.lineColor;
 	graph.globalAlpha = 0.15;
 	graph.beginPath();
-	
+
 	for (var x = global.xoffset + global.screenWidth - restX; x > 0; x -= cellSizeY) {
 		graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
 	}
-	
+
 	for (var y = global.yoffset + global.screenHeight - restY; y > 0; y -= cellSizeY) {
 		graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
 	}
-/*	
+/*
     for (var x = global.xoffset - player.camX; x < global.screenWidth; x += global.screenHeight / 18) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
@@ -630,7 +658,7 @@ function handleInput() {
 		x: 0,
 		y: 0
 	};
-	
+
 	kd.tick();
 	socket.emit('updateMove', global.targetVector);
 }
@@ -656,33 +684,33 @@ function drawAnimationTest() {
 	var scale = 1;
 	var xOffset = global.screenWidth/2;
 	var yOffset = 200;
-	
+
 	graph.lineWidth = 1;
     graph.strokeStyle = '#E00000';
     graph.globalAlpha = 0.15;
     graph.beginPath();
-	
+
 	for (var i = 0; i <= 1; i += diff) {
-		coords = animator.getPosByPercent("character/l_hand", i);
+		coords = animator.getPosByLengthPercent("moving/l_hand", i);
 		coords.x *= scale;
 		coords.y *= scale;
 		coords.x += xOffset;
 		coords.y += yOffset;
 		graph.lineTo(coords.x, coords.y);
 	}
-	
+
 	graph.stroke();
     graph.globalAlpha = 1;
 }
 
 function animloop() {
     global.animLoopHandle = window.requestAnimFrame(animloop);
-	
+
 	var now = new Date().getTime(),
         dt = now - (time || now);
- 
+
     time = now - startTime;
-	
+
     gameLoop();
 }
 
@@ -710,7 +738,7 @@ function gameLoop() {
 
 			//drawPlayer(orderMass[0]);
 			drawAnimationTest();
-			
+
 //            drawPlayers(orderMass);
 			handleInput();
             socket.emit('0', window.canvas.target); // playerSendTarget "Heartbeat".

@@ -18,6 +18,10 @@ var quadtree = require('simple-quadtree');
 
 var tree = quadtree(0, 0, c.gameWidth, c.gameHeight);
 
+var startTime = new Date().getTime();
+var prevTime = startTime;
+var dt = 1;
+
 var currentId = 0;
 var aPlayers = [];
 var aSockets = [];
@@ -27,19 +31,45 @@ var C = SAT.Circle;
 
 
 app.use(express.static(__dirname + '/../client'));
-app.listen(3000); 
+app.listen(3000);
 
 function moveCharacter(character) {
 	var moveVector = util.normalizeVector(character.targetVector.x, character.targetVector.y);
-	
+
 	character.prevX = character.x;
 	character.prevY = character.y;
-	
+
 	character.x += moveVector.x * character.moveSpeed;
 	character.y += moveVector.y * character.moveSpeed;
-	
+
 //	character.x += (Math.random() - 0.5) * 2;
 //	character.y += (Math.random() - 0.5) * 2;
+}
+
+function animateCharacter(oPlayer) {
+	var oCharacter = oPlayer.character;
+
+	if (oCharacter.targetVector.x == 0 &&
+		oCharacter.targetVector.y == 0) {
+			if (oCharacter.animation.name === "idle") {
+				oCharacter.animation.duration += dt;
+			} else {
+				oCharacter.animation = {
+					name: "idle",
+					duration: 0
+				}
+			}
+	} else {
+		if (oCharacter.animation.name === "moving") {
+			console.log("dt: " + dt)
+			oCharacter.animation.duration += dt;
+		} else {
+			oCharacter.animation = {
+				name: "moving",
+				duration: 0
+			}
+		}
+	}
 }
 
 io.on('connection', function (socket) {
@@ -47,12 +77,12 @@ io.on('connection', function (socket) {
 
     var name = socket.handshake.query.name;
 	console.log("Users name is: " + name);
-	
+
     var position = {
 		x: c.gameWidth / 2,
 		y: c.gameHeight / 2
 	};
-	
+
 	var oCurrentPlayer = {
 		id: aPlayers.length,
 		name: name,
@@ -81,11 +111,11 @@ io.on('connection', function (socket) {
 		lastHeartbeat: new Date().getTime()
 	};
 	currentId += 1;		// TODO: change id generation
-	
+
 	socket.on('requestStart', function () {
 		console.log("requestStart");
 		console.log("Socket: " + socket.id);
-		
+
 		if (util.findIndex(aPlayers, oCurrentPlayer.id) > -1) {
             console.log('[INFO] Player ID is already connected, kicking.');
             socket.disconnect();
@@ -94,7 +124,7 @@ io.on('connection', function (socket) {
             socket.disconnect();
         } else {
             console.log('[INFO] Player ' + oCurrentPlayer.name + ' connected!');
-			
+
             oCurrentPlayer.lastHeartbeat = new Date().getTime();
 			console.log("oCurrentPlayer.id: " + oCurrentPlayer.id);
             aPlayers[oCurrentPlayer.id] = oCurrentPlayer;
@@ -107,7 +137,7 @@ io.on('connection', function (socket) {
                 gameHeight: c.gameHeight
             },
 			oCurrentPlayer);
-			
+
             console.log('Total aPlayers: ' + aPlayers.length);
         }
 	});
@@ -139,14 +169,14 @@ io.on('connection', function (socket) {
     socket.on('0', function(target) {
         oCurrentPlayer.lastHeartbeat = new Date().getTime();
     });
-	
+
 	socket.on('updateMove', function(targetVector) {
 		oCurrentPlayer.character.targetVector = targetVector;
 	});
-	
+
 	socket.on('moveDown', function(keyData) {
 		var targetVector = oCurrentPlayer.character.targetVector;
-		
+
 		switch(keyData.keyCode) {
 		case 37:	// LEFT
 			targetVector.x -= 1;
@@ -163,10 +193,10 @@ io.on('connection', function (socket) {
 		}
 		console.log("moveDown: (" + targetVector.x + " | " + targetVector.y + ")");
 	});
-	
+
 	socket.on('moveUp', function(keyData) {
 		var targetVector = oCurrentPlayer.character.targetVector;
-		
+
 		switch(keyData.keyCode) {
 		case 37:	// LEFT
 			targetVector.x += 1;
@@ -192,8 +222,9 @@ function tickPlayer(oCurrentPlayer) {
         aSockets[oCurrentPlayer.id].disconnect();
     }
 	var playerCircle = new C(new V(oCurrentPlayer.character.x, oCurrentPlayer.character.y), oCurrentPlayer.character.radius);
-	
+
     moveCharacter(oCurrentPlayer.character);
+	animateCharacter(oCurrentPlayer);
 
     function check(oPlayer) {
 		if(oPlayer.id !== oCurrentPlayer.id) {
@@ -240,7 +271,7 @@ function tickPlayer(oCurrentPlayer) {
 		*/
     }
 
-    
+
 	tree.clear();
 	aPlayers.forEach(tree.put);
 	var playerCollisions = [];
@@ -251,6 +282,11 @@ function tickPlayer(oCurrentPlayer) {
 }
 
 function moveloop() {
+	var now = new Date().getTime();
+
+	dt = now - prevTime;
+	prevTime = now;
+
     for (var i = 0; i < aPlayers.length; i++) {
         tickPlayer(aPlayers[i]);
     }
@@ -284,7 +320,7 @@ function sendUpdates() {
 		var visiblePlayers = aPlayers.map(function(player) {
 			return player;
 		});
-		
+
 		/*
         var visibleCells = aPlayers
             .map(function(f) {
@@ -320,7 +356,7 @@ function sendUpdates() {
             })
             .filter(function(f) { return f; });
 		*/
-		
+
         aSockets[u.id].emit('update', aPlayers[0], visiblePlayers);
     });
 }

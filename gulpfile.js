@@ -1,6 +1,5 @@
 var gulp = require('gulp');
 var babel = require('gulp-babel');
-var jshint = require('gulp-jshint');
 var nodemon = require('gulp-nodemon');
 var uglify = require('gulp-uglify');
 var util = require('gulp-util');
@@ -13,21 +12,12 @@ var fs = require('fs');
 
 gulp.task('build', ['build-client', 'build-server', 'test', 'todo']);
 
-gulp.task('test', ['lint'], function () {
+gulp.task('test', [], function () {
     gulp.src(['test/**/*.js'])
         .pipe(mocha());
 });
 
-gulp.task('lint', function () {
-  return gulp.src(['**/*.js', '!node_modules/**/*.js', '!bin/**/*.js'])
-    .pipe(jshint({
-          esnext: true
-      }))
-    .pipe(jshint.reporter('default', { verbose: true}))
-    .pipe(jshint.reporter('fail'));
-});
-
-gulp.task('build-client', ['lint', 'move-client'], function () {
+gulp.task('build-client', ['move-client'], function () {
   return gulp.src(['src/client/js/app.js'])
     .pipe(uglify())
     .pipe(webpack(require('./webpack.config.js')))
@@ -45,7 +35,7 @@ gulp.task('move-client', function () {
 });
 
 
-gulp.task('build-server', ['lint'], function () {
+gulp.task('build-server', function () {
   return gulp.src(['src/server/**/*.*', 'src/server/**/*.js'])
     .pipe(babel())
     .pipe(gulp.dest('bin/server/'));
@@ -57,7 +47,7 @@ gulp.task('watch', ['build'], function () {
   gulp.start('run-only');
 });
 
-gulp.task('todo', ['lint'], function() {
+gulp.task('todo', function() {
   gulp.src('src/**/*.js')
       .pipe(todo())
       .pipe(gulp.dest('./'));
