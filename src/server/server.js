@@ -61,7 +61,6 @@ function animateCharacter(oPlayer) {
 			}
 	} else {
 		if (oCharacter.animation.name === "moving") {
-			console.log("dt: " + dt)
 			oCharacter.animation.duration += dt;
 		} else {
 			oCharacter.animation = {
@@ -102,9 +101,10 @@ io.on('connection', function (socket) {
 			angle: 0,
 			health: 100,
 			animation: {
-				id: "idle",
-				progress: 0
-			}
+				name: "idle",
+				duration: 0
+			},
+			sWeapon: "scythe"
 		},
 		screenWidth: 1,
 		screenHeight: 1,

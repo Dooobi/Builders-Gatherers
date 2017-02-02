@@ -6,63 +6,58 @@ var root = {
 	animations: {}
 };
 
-var line = {
-	x1: 1,
-	x2: 2,
-	y1: 3,
-	y2: 4
-};
-
-var curve = {
-	x: 2,
-	y: 2,
-	r: 2,
-	startAngle: 40.5,
-	endAngle: 91.2
-};
-
 var lineLengthToCoords = function(line, someLength) {
-	var coords = {
+	var percentage = someLength / line.length;
+
+	var result = {
 		x: Math.cos(line.rad) * someLength + line.start.x,
-		y: Math.sin(line.rad) * someLength + line.start.y
+		y: Math.sin(line.rad) * someLength + line.start.y,
+		rotation: (line.rotationEnd - line.rotationStart) * percentage + line.rotationStart
 	};
-	return coords;
+	return result;
 };
 
 var curveLengthToCoords = function(curve, someLength) {
-	var rad = (curve.endRad - curve.startRad) * (someLength / curve.length);
+	var percentage = someLength / curve.length;
+	var rad = (curve.endRad - curve.startRad) * percentage;
 	rad += curve.startRad;
 	//var rad = (someLength/curve.radius) + curve.startRad;
 
-	var coords = {
+	var result = {
 		x: Math.cos(rad) * curve.radius + curve.x,
-		y: Math.sin(rad) * curve.radius + curve.y
+		y: Math.sin(rad) * curve.radius + curve.y,
+		rotation: (curve.rotationEnd - curve.rotationStart) * percentage + curve.rotationStart
 	};
-	return coords;
+	return result;
 };
 
 var lineDurationToCoords = function(line, someDuration) {
-	var coords = {
+	var percentage = someDuration / line.duration;
+
+	var result = {
 		x: Math.cos(line.rad) * line.length * (someDuration/line.duration) + line.start.x,
-		y: Math.sin(line.rad) * line.length * (someDuration/line.duration) + line.start.y
+		y: Math.sin(line.rad) * line.length * (someDuration/line.duration) + line.start.y,
+		rotation: (line.rotationEnd - line.rotationStart) * percentage + line.rotationStart
 	};
-	return coords;
+	return result;
 };
 
 var curveDurationToCoords = function(curve, someDuration) {
-	var rad = (curve.endRad - curve.startRad) * (someDuration / curve.duration);
+	var percentage = someDuration / curve.duration;
+	var rad = (curve.endRad - curve.startRad) * percentage;
 	rad += curve.startRad;
 	//var rad = (someLength/curve.radius) + curve.startRad;
 
-	var coords = {
+	var result = {
 		x: Math.cos(rad) * curve.radius + curve.x,
-		y: Math.sin(rad) * curve.radius + curve.y
+		y: Math.sin(rad) * curve.radius + curve.y,
+		rotation: (curve.rotationEnd - curve.rotationStart) * percentage + curve.rotationStart
 	};
-	return coords;
+	return result;
 };
 
 var getAnimationCoordsByDuration = function(oAnimation, someDuration) {
-	var coords = {x: 0, y: 0};
+	var result = {x: 0, y: 0, rotation: 0};
 	var shapes = oAnimation.shapes,
 		shape = null;
 	var totalDuration = 0,
@@ -72,7 +67,7 @@ var getAnimationCoordsByDuration = function(oAnimation, someDuration) {
 	var i = 0;
 
 	if (!shapes) {
-		return {x: 0, y: 0};
+		return {x: 0, y: 0, rotation: 0};
 	}
 
 	for (i = 0; i < shapes.length; i++) {
@@ -91,19 +86,19 @@ var getAnimationCoordsByDuration = function(oAnimation, someDuration) {
 	}
 
 	if (!shape) {
-		return {x: 0, y: 0};
+		return {x: 0, y: 0, rotation: 0};
 	}
 
 	switch (shape.type) {
 	case "line":
-		coords = lineDurationToCoords(shape, leftOverDuration);
+		result = lineDurationToCoords(shape, leftOverDuration);
 		break;
 	case "curve":
-		coords = curveDurationToCoords(shape, leftOverDuration);
+		result = curveDurationToCoords(shape, leftOverDuration);
 		break;
 	}
 
-	return coords;
+	return result;
 };
 
 var lazyLoadAnimation = function(sName, oParent) {
@@ -150,7 +145,7 @@ exports.createAnimation = function(sPath) {
 	getAnimation(sPath);
 };
 
-exports.addLine = function(sPath, x1, y1, x2, y2, duration) {
+exports.addLine = function(sPath, x1, y1, x2, y2, rotationStart, rotationEnd, duration) {
 	var line = {
 		type: "line",
 		start: {
@@ -163,12 +158,14 @@ exports.addLine = function(sPath, x1, y1, x2, y2, duration) {
 		},
 		rad: vectorToDegrees(x1, y1, x2, y2),
 		length: Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)),
+		rotationStart: rotationStart,
+		rotationEnd: rotationEnd,
 		duration: duration || 0
 	};
 	getAnimation(sPath).shapes.push(line);
 };
 
-exports.addCurve = function(sPath, x, y, radius, startAngle, endAngle, duration) {
+exports.addCurve = function(sPath, x, y, radius, startAngle, endAngle, rotationStart, rotationEnd, duration) {
 	var curve = {
 		type: "curve",
 		x: x,
@@ -177,6 +174,8 @@ exports.addCurve = function(sPath, x, y, radius, startAngle, endAngle, duration)
 		startRad: degToRad(startAngle),
 		endRad: degToRad(endAngle),
 		length: degToRad(endAngle - startAngle) * radius,
+		rotationStart: rotationStart,
+		rotationEnd: rotationEnd,
 		duration: duration || 0
 	};
 	if (curve.length < 0) {
@@ -191,12 +190,11 @@ exports.getPosByLength = function(sPath, someLength) {
 	var currentLength = 0;
 	var shapes = getAnimation(sPath).shapes;
 	var shape = null;
-	var coords = null;
-	var pPart = null;
+	var result = null;
 	var leftOverLength = 0;
 
 	if (!shapes) {
-		return {x: 0, y: 0};
+		return {x: 0, y: 0, rotation: 0};
 	}
 
 	for (i = 0; i < shapes.length; i++) {
@@ -210,32 +208,32 @@ exports.getPosByLength = function(sPath, someLength) {
 	}
 
 	if (!shape) {
-		return {x: 0, y: 0};
+		return {x: 0, y: 0, rotation: 0};
 	}
 
 	switch (shape.type) {
 	case "line":
-		coords = lineLengthToCoords(shape, leftOverLength);
+		result = lineLengthToCoords(shape, leftOverLength);
 		break;
 	case "curve":
-		coords = curveLengthToCoords(shape, leftOverLength);
+		result = curveLengthToCoords(shape, leftOverLength);
 		break;
 	}
 
-	return coords;
+	return result;
 };
 
 exports.getPosByDuration = function(sPath, someDuration) {
 	var oAnimation = getAnimation(sPath);
 
-	var coords = getAnimationCoordsByDuration(oAnimation, someDuration);
+	var result = getAnimationCoordsByDuration(oAnimation, someDuration);
 
-	return coords;
+	return result;
 };
 
-var getAnimationNodeByDuration = function(oAnimation, someDuration, parentCoords) {
+var getAnimationNodeByDuration = function(oAnimation, someDuration, parentData) {
 	var oResult = {
-		coords: {},
+		data: {},
 		animations: {}
 	};
 	var keys = Object.keys(oAnimation.animations);
@@ -243,14 +241,15 @@ var getAnimationNodeByDuration = function(oAnimation, someDuration, parentCoords
 	var nextAnimation;
 	var i = 0;
 
-	oResult.coords = getAnimationCoordsByDuration(oAnimation, someDuration);
-	oResult.coords.x += parentCoords.x;
-	oResult.coords.y += parentCoords.y;
+	oResult.data = getAnimationCoordsByDuration(oAnimation, someDuration);
+	oResult.data.x += parentData.x;
+	oResult.data.y += parentData.y;
+	oResult.data.rotation += parentData.rotation;
 
 	for (i = 0; i < keys.length; i++) {
 		key = keys[i];
 		nextAnimation = oAnimation.animations[key];
-		oResult.animations[key] = getAnimationNodeByDuration(nextAnimation, someDuration, oResult.coords);
+		oResult.animations[key] = getAnimationNodeByDuration(nextAnimation, someDuration, oResult.data);
 	}
 
 	return oResult;
@@ -259,7 +258,7 @@ var getAnimationNodeByDuration = function(oAnimation, someDuration, parentCoords
 exports.getAnimationTreeByDuration = function(sPath, someDuration) {
 	var rootAnimation = getAnimation(sPath);
 
-	var tree = getAnimationNodeByDuration(rootAnimation, someDuration, {x: 0, y: 0})
+	var tree = getAnimationNodeByDuration(rootAnimation, someDuration, {x: 0, y: 0, rotation: 0});
 
 	return tree;
 };

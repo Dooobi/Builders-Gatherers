@@ -4,12 +4,13 @@ var Canvas = require('./canvas');
 var global = require('./global');
 var animator = require('./animator');
 var kd = require('./keydrown');
+var weapons = require('./weapons');
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
 var reason;
 var startTime;
-var time;
+var prevTime = 0;
 var dt;
 
 var debug = function(args) {
@@ -25,27 +26,28 @@ if ( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
 function setupAnimations() {
     // Idle
     animator.createAnimation("idle/body");
-    animator.addLine("idle/body", 0, 5, 0, -5, 300);
-    animator.addLine("idle/body", 0, -5, 0, 5, 300);
+    animator.addLine("idle/body", 0, 5, 0, -2, 0, 0, 300);
+    animator.addLine("idle/body", 0, -2, 0, 5, 0, 0, 300);
     animator.createAnimation("idle/body/l_hand");
-    animator.addCurve("idle/body/l_hand", 0, 0, 35, 170, 180, 300);
-    animator.addCurve("idle/body/l_hand", 0, 0, 35, 180, 170, 300);
+    animator.addCurve("idle/body/l_hand", 0, 0, 40, 170, 175, -5, 5, 300);
+    animator.addCurve("idle/body/l_hand", 0, 0, 40, 175, 170, 5, -5, 300);
     animator.createAnimation("idle/body/r_hand");
-    animator.addCurve("idle/body/r_hand", 0, 0, 35, 10, 0, 300);
-    animator.addCurve("idle/body/r_hand", 0, 0, 35, 0, 10, 300);
+    animator.addCurve("idle/body/r_hand", 0, 0, 40, 10, 5, 5, -5, 300);
+    animator.addCurve("idle/body/r_hand", 0, 0, 40, 5, 10, -5, 5, 300);
     // Moving
     animator.createAnimation("moving/body");
-    animator.addLine("moving/body", 0, 5, 0, -5, 250);
-    animator.addLine("moving/body", 0, -5, 0, 5, 250);
+    animator.addLine("moving/body", 0, 5, 0, -5, 0, 0, 250);
+    animator.addLine("moving/body", 0, -5, 0, 5, 0, 0, 250);
     animator.createAnimation("moving/body/l_hand");
-    animator.addCurve("moving/body/l_hand", 0, 0, 35, 160, 190, 250);
-    animator.addCurve("moving/body/l_hand", 0, 0, 35, 190, 160, 250);
+    animator.addLine("moving/body/l_hand", -38, 5, -40, -5, -5, 5, 250);
+    animator.addLine("moving/body/l_hand", -40, -5, -38, 5, 5, -5, 250);
+//    animator.addCurve("moving/body/l_hand", 0, 0, 40, 160, 190, 250);
+//    animator.addCurve("moving/body/l_hand", 0, 0, 40, 190, 160, 250);
     animator.createAnimation("moving/body/r_hand");
-    animator.addCurve("moving/body/r_hand", 0, 0, 35, 20, -10, 250);
-    animator.addCurve("moving/body/r_hand", 0, 0, 35, -10, 20, 250);
-
-    var tree = animator.getAnimationTreeByDuration("moving", 200);
-    console.log(JSON.stringify(tree));
+    animator.addLine("moving/body/r_hand", 38, 5, 40, -5, 5, -5, 250);
+    animator.addLine("moving/body/r_hand", 40, -5, 38, 5, -5, 5, 250);
+//    animator.addCurve("moving/body/r_hand", 0, 0, 40, 20, -10, 250);
+//    animator.addCurve("moving/body/r_hand", 0, 0, 40, -10, 20, 250);
 }
 
 function requestStart(name) {
@@ -85,6 +87,34 @@ function validNick(name) {
 
 window.onload = function() {
 
+    Math.degToRad = function(deg) {
+    	return deg * (Math.PI/180);
+    };
+    Math.radToDeg = function(rad) {
+    	return rad * (180/Math.PI);
+    };
+    Math.cartesianToPolar = function(x, y) {
+        return {
+            radius: Math.sqrt(x*x + y*y),
+            alpha: Math.atan2(y, x)
+        };
+    };
+    Math.polarToCartesian = function(radius, alpha) {
+        return {
+            x: radius * Math.cos(alpha),
+            y: radius * Math.sin(alpha)
+        };
+    };
+    Math.applyRotationRad = function(x, y, rotationRad) {
+        var polar = Math.cartesianToPolar(x, y);
+        polar.alpha += rotationRad;
+        return Math.polarToCartesian(polar.radius, polar.alpha);
+    };
+    Math.applyRotationDeg = function(x, y, rotationDeg) {
+        var polar = Math.cartesianToPolar(x, y);
+        polar.alpha += Math.degToRad(rotationDeg);
+        return Math.polarToCartesian(polar.radius, polar.alpha);
+    };
     var btn = document.getElementById('startButton'),
         nickErrorText = document.querySelector('#startMenu .input-error');
 
@@ -136,7 +166,7 @@ var foodConfig = {
 };
 
 var playerConfig = {
-    border: 6,
+    border: 4,
     textColor: '#FFFFFF',
     textBorder: '#000000',
     textBorderSize: 3,
@@ -410,60 +440,90 @@ function drawPlayer(oPlayer) {
     };
 	var x = oCharacter.x - start.x,
 		y = oCharacter.y - start.y,
+        rotated,
         animPos = {},
         animName = oCharacter.animation.name,
         animDuration = oCharacter.animation.duration,
         animTree,
-		radius = 23,
+		radius = 30,
 		sides = 20,
-		eyeDist = 3,
+		eyeDist = 5,
+        eyeWidth = 17,
+        eyeHeight = 1,
+        eyeTallness = 7,
 		handDist = 10,
 		handHeight = 5,
-		handRadius = 5;
+		handRadius = 6;
 
-	var animPercentage = (time % 1000) / 1000;
     animTree = animator.getAnimationTreeByDuration(animName, animDuration);
 
 	// Body
+    graph.lineWidth = playerConfig.border;
 	graph.strokeStyle = 'hsl(80%, 100%, 45%)';
 	graph.fillStyle = "#FF0000";
-	graph.lineWidth = playerConfig.border;
-    animPos = animTree.animations.body.coords;
+    animPos = animTree.animations.body.data;
 	drawCircle(x + animPos.x, y + animPos.y, radius, sides);
 
 	// Eyes
+    graph.lineWidth = playerConfig.border - 2;
 	graph.strokeStyle = 'hsl(30%, 50%, 100%)';
 	graph.fillStyle = 'hsl(80%, 100%, 50%)';
-	graph.lineWidth = 4;
 	// Left Eye
 	graph.beginPath();
-	graph.moveTo(x - eyeDist + animPos.x, y + animPos.y);
-	graph.lineTo(x - 10 - eyeDist + animPos.x, y - 1 + animPos.y);
-	graph.lineTo(x - 10 - eyeDist + animPos.x, y - 8 + animPos.y);
-	graph.lineTo(x - 1 - eyeDist + animPos.x, y - 1 + animPos.y);
+	graph.moveTo(x - eyeDist + animPos.x, y - eyeHeight + animPos.y);
+	graph.lineTo(x - eyeWidth + 0.5 - eyeDist + animPos.x, y - eyeHeight + 2 + animPos.y);
+	graph.lineTo(x - eyeWidth + 1 - eyeDist + animPos.x, y - eyeHeight - eyeTallness + animPos.y);
+//	graph.lineTo(x - 1 - eyeDist + animPos.x, y - 1 + animPos.y);
 	graph.closePath();
 	graph.stroke();
 	graph.fill();
 	// Right Eye
 	graph.beginPath();
-	graph.moveTo(x + eyeDist + animPos.x, y + animPos.y);
-	graph.lineTo(x + 10 + eyeDist + animPos.x, y - 1 + animPos.y);
-	graph.lineTo(x + 10 + eyeDist + animPos.x, y - 8 + animPos.y);
-	graph.lineTo(x + 1 + eyeDist + animPos.x, y - 1 + animPos.y);
+	graph.moveTo(x + eyeDist + animPos.x, y - eyeHeight + animPos.y);
+	graph.lineTo(x + eyeWidth - 0.5 + eyeDist + animPos.x, y - eyeHeight + 2 + animPos.y);
+	graph.lineTo(x + eyeWidth - 1 + eyeDist + animPos.x, y - eyeHeight - eyeTallness + animPos.y);
+//	graph.lineTo(x + 1 + eyeDist + animPos.x, y - 1 + animPos.y);
 	graph.closePath();
 	graph.stroke();
 	graph.fill();
 
 	// Hands
+    graph.lineWidth = playerConfig.border;
 	graph.strokeStyle = 'hsl(30%, 50%, 100%)';
 	graph.fillStyle = 'hsl(80%, 100%, 50%)';
-	graph.lineWidth = 4;
 	// Left Hand
-    animPos = animTree.animations.body.animations.l_hand.coords;
+    animPos = animTree.animations.body.animations.l_hand.data;
 	drawCircle(x + animPos.x, y + animPos.y, handRadius, sides);
-	// Right Hand
-    animPos = animTree.animations.body.animations.r_hand.coords;
+    drawWeapon(x + animPos.x, y + animPos.y, animPos.rotation, oCharacter);
+    // Right Hand
+    animPos = animTree.animations.body.animations.r_hand.data;
     drawCircle(x + animPos.x, y + animPos.y, handRadius, sides);
+}
+
+function drawWeapon(originX, originY, rotation, oCharacter) {
+    var weapon = weapons[oCharacter.sWeapon];
+    var shapes = weapon.shapes;
+    var vertices;
+    var x, y, rotated;
+    var i = 0, j = 0;
+
+    for (i = 0; i < shapes.length; i++) {
+        vertices = shapes[i].vertices;
+        graph.beginPath();
+        for (j = 0; j < vertices.length; j++) {
+            rotated = Math.applyRotationDeg(vertices[j].x, vertices[j].y, rotation);
+            x = originX + rotated.x;
+            y = originY + rotated.y;
+            if (j === 0) {
+                graph.moveTo(x, y);
+            } else {
+                graph.lineTo(x, y);
+            }
+        }
+        graph.closePath();
+        graph.stroke();
+        graph.fill();
+    }
 }
 
 function drawPlayers(order) {
@@ -706,12 +766,16 @@ function drawAnimationTest() {
 function animloop() {
     global.animLoopHandle = window.requestAnimFrame(animloop);
 
-	var now = new Date().getTime(),
-        dt = now - (time || now);
+	var now = new Date().getTime();
 
-    time = now - startTime;
+    dt = now - prevTime;
+    prevTime = now;
 
     gameLoop();
+
+    graph.fillStyle = 'black';
+    graph.font = '35px serif';
+    graph.fillText("" + (1000/dt), 10, 30);
 }
 
 function gameLoop() {
