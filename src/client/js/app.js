@@ -5,6 +5,7 @@ var global = require('./global');
 var animator = require('./animator');
 var kd = require('./keydrown');
 var weapons = require('./weapons');
+var animations = require('./animations');
 
 var playerNameInput = document.getElementById('playerNameInput');
 var socket;
@@ -25,6 +26,8 @@ if ( /Android|webOS|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent) ) {
 
 function setupAnimations() {
     // Idle
+    animator.setupAnimations(animations);
+/*
     animator.createAnimation("idle/body");
     animator.addLine("idle/body", 0, 5, 0, -2, 0, 0, 300);
     animator.addLine("idle/body", 0, -2, 0, 5, 0, 0, 300);
@@ -34,6 +37,7 @@ function setupAnimations() {
     animator.createAnimation("idle/body/r_hand");
     animator.addCurve("idle/body/r_hand", 0, 0, 40, 10, 5, 5, -5, 300);
     animator.addCurve("idle/body/r_hand", 0, 0, 40, 5, 10, -5, 5, 300);
+*/
     // Moving
     animator.createAnimation("moving/body");
     animator.addLine("moving/body", 0, 5, 0, -5, 0, 0, 250);

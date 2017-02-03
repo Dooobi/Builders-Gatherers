@@ -145,6 +145,29 @@ exports.createAnimation = function(sPath) {
 	getAnimation(sPath);
 };
 
+exports.setupAnimations = function(oAnimations) {
+	var i, j;
+	var keys = Object.keys(oAnimations);
+	var sPath, oAnimation, oShape;
+
+	for (i = 0; i < keys.length; i++) {
+		sPath = keys[i];
+		oAnimation = oAnimations[sPath];
+		exports.createAnimation(sPath);
+		for (j = 0; j < oAnimation.shapes.length; j++) {
+			oShape = oAnimation.shapes[j];
+			switch(oShape.type) {
+				case "line":
+					exports.addLine(sPath, oShape.posStart.x, oShape.posStart.y, oShape.posEnd.x, oShape.posEnd.y, oShape.rotDegStart, oShape.rotDegEnd, oShape.duration);
+					break;
+				case "curve":
+					exports.addCurve(sPath, oShape.pos.x, oShape.pos.y, oShape.radius, oShape.angleDegStart, oShape.angleDegEnd, oShape.rotDegStart, oShape.rotDegEnd, oShape.duration);
+					break;
+			}
+		}
+	}
+};
+
 exports.addLine = function(sPath, x1, y1, x2, y2, rotationStart, rotationEnd, duration) {
 	var line = {
 		type: "line",
